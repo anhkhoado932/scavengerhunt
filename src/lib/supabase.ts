@@ -23,6 +23,17 @@ export interface GlobalsData {
   game_has_started: boolean;
 }
 
+// New interface for user group
+export interface UserGroup {
+  id: number;
+  user_id_1: string | null;
+  user_id_2: string | null;
+  user_id_3: string | null;
+  user_id_4: string | null;
+  photo_url?: string | null;
+  found: boolean;
+}
+
 export async function checkUserExists(email: string): Promise<User | null> {
   const { data, error } = await supabase
     .from('users')
@@ -40,7 +51,7 @@ export async function checkUserExists(email: string): Promise<User | null> {
 export async function getGameStatus(): Promise<GameStatus | null> {
   const { data, error } = await supabase
     .from('globals')
-    .select('game_has_started, checkpoint1_has_completed, checkpoint2_has_completed, checkpoint3_has_completed')
+    .select('game_has_started')
     .single();
   
   if (error || !data) {
@@ -51,24 +62,25 @@ export async function getGameStatus(): Promise<GameStatus | null> {
   return data as GameStatus;
 }
 
-export async function updateCheckpointStatus(checkpointNum: 1 | 2 | 3): Promise<boolean> {
-  const field = `checkpoint${checkpointNum}_has_completed`;
-  
+// New function to fetch user's group
+export async function getUserGroup(userId: string): Promise<UserGroup | null> {
   try {
-    const { error } = await supabase
-      .from('globals')
-      .update({ [field]: true })
-      .eq('id', 1);  // Assuming we have a single row with id 1 for global state
+    // Check if user is in any group (any of the user_id fields)
+    const { data, error } = await supabase
+      .from('groups')
+      .select('*')
+      .or(`user_id_1.eq.${userId},user_id_2.eq.${userId},user_id_3.eq.${userId},user_id_4.eq.${userId}`)
+      .single();
     
-    if (error) {
-      console.error('Error updating checkpoint status:', error);
-      return false;
+    if (error || !data) {
+      console.error('Error fetching user group:', error);
+      return null;
     }
     
-    return true;
+    return data as UserGroup;
   } catch (error) {
-    console.error('Error updating checkpoint status:', error);
-    return false;
+    console.error('Error fetching user group:', error);
+    return null;
   }
 }
 
