@@ -3,8 +3,7 @@
 import { useUser } from "@/contexts/user-context";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getGameStatus, GameStatus, updateCheckpointStatus } from "@/lib/supabase";
-import { GameProgress } from "@/components/game-progress";
+import { getGameStatus, GameStatus, getUserGroup, UserGroup } from "@/lib/supabase";
 import { CheckpointFacematch } from "@/components/checkpoint-facematch";
 import { CheckpointLocationHints } from "@/components/checkpoint-location-hints";
 
@@ -12,6 +11,7 @@ export default function Dashboard() {
   const { user, isLoading, logout } = useUser();
   const router = useRouter();
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
+  const [userGroup, setUserGroup] = useState<UserGroup | null>(null);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
   const [currentCheckpoint, setCurrentCheckpoint] = useState<number>(1);
 
@@ -22,48 +22,31 @@ export default function Dashboard() {
     }
   }, [user, isLoading, router]);
 
-  // Fetch game status
+  // Fetch game status and user group
   useEffect(() => {
-    async function fetchGameStatus() {
+    async function fetchData() {
       if (user) {
         setIsLoadingGame(true);
         try {
+          // Fetch game status
           const status = await getGameStatus();
           setGameStatus(status);
-          // If game has started, set current checkpoint to 2 (location hints)
-          if (status?.game_has_started) {
-            setCurrentCheckpoint(2);
+          
+          // Fetch user's group if user has an ID
+          if (user.id) {
+            const group = await getUserGroup(user.id);
+            setUserGroup(group);
           }
         } catch (error) {
-          console.error("Error fetching game status:", error);
+          console.error("Error fetching data:", error);
         } finally {
           setIsLoadingGame(false);
         }
       }
     }
 
-    fetchGameStatus();
+    fetchData();
   }, [user]);
-
-  // Handle checkpoint completion
-  const handleCheckpoint1Completed = async () => {
-    if (await updateCheckpointStatus(1)) {
-      // Refresh game status after updating checkpoint
-      const status = await getGameStatus();
-      setGameStatus(status);
-      // Move to checkpoint 2
-      setCurrentCheckpoint(2);
-    }
-  };
-
-  const handleCheckpoint2Completed = async () => {
-    if (await updateCheckpointStatus(2)) {
-      // Refresh game status after updating checkpoint
-      const status = await getGameStatus();
-      setGameStatus(status);
-      setCurrentCheckpoint(3);
-    }
-  };
 
   // Show loading state while checking authentication
   if (isLoading || isLoadingGame) {
@@ -79,23 +62,50 @@ export default function Dashboard() {
     return null;
   }
 
-  // Determine which checkpoint component to show
-  const renderCurrentCheckpoint = () => {
-    if (!gameStatus) return null;
+  // Determine what to show based on game state and user group
+  const renderContent = () => {
+    if (!gameStatus?.game_has_started) {
+      return (
+        <p className="text-muted-foreground mb-8 text-center">
+          Waiting for game to start...
+        </p>
+      );
+    }
     
-    switch (currentCheckpoint) {
-      case 1:
-        return <CheckpointFacematch user={user} onComplete={handleCheckpoint1Completed} />;
-      case 2:
-        return <CheckpointLocationHints user={user} onComplete={handleCheckpoint2Completed} />;
-      default:
-        return (
+    // If user is in a group and item hasn't been found yet
+    if (userGroup && !userGroup.found) {
+      return (
+        <div className="space-y-6 mb-8">
+          <p className="text-muted-foreground text-center">
+            Game in progress!
+          </p>
+          <div className="mt-8">
+            <CheckpointFacematch user={user} onComplete={async () => {
+              // Refresh user group data after completion
+              if (user.id) {
+                const group = await getUserGroup(user.id);
+                setUserGroup(group);
+              }
+            }} />
+          </div>
+        </div>
+      );
+    }
+    
+    // Default state - waiting for next challenge or no group assigned
+    return (
+      <div className="space-y-6 mb-8">
+        <p className="text-muted-foreground text-center">
+          Game in progress!
+        </p>
+        <div className="mt-8">
           <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded text-center">
             <p className="text-lg font-semibold">Waiting for next challenge...</p>
             <p className="text-muted-foreground">Please wait for further instructions.</p>
           </div>
-        );
-    }
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -105,25 +115,7 @@ export default function Dashboard() {
           Welcome, {user.name}!
         </h1>
         
-        {gameStatus && !gameStatus.game_has_started ? (
-          <p className="text-muted-foreground mb-8 text-center">
-            Waiting for game to start...
-          </p>
-        ) : gameStatus?.game_has_started ? (
-          <div className="space-y-6 mb-8">
-            <p className="text-muted-foreground text-center">
-              Game in progress!
-            </p>
-            <GameProgress gameStatus={gameStatus} />
-            <div className="mt-8">
-              {renderCurrentCheckpoint()}
-            </div>
-          </div>
-        ) : (
-          <p className="text-muted-foreground mb-8 text-center">
-            You have successfully signed in!
-          </p>
-        )}
+        {renderContent()}
         
         {/* Sign Out button commented out for now
         <button 

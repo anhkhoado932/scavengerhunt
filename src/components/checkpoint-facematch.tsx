@@ -4,7 +4,7 @@ import { useState } from "react"
 import { CameraCapture } from "@/components/camera-capture"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { User, updateGroupFoundStatus } from "@/lib/supabase"
+import { User, updateGroupFoundStatus, supabase } from "@/lib/supabase"
 
 interface CheckpointFacematchProps {
   user: User
@@ -45,6 +45,44 @@ export function CheckpointFacematch({ user, onComplete }: CheckpointFacematchPro
     await processMatch(url)
   }
 
+  // Mark the user's group as found
+  const markGroupAsFound = async (): Promise<boolean> => {
+    if (!user.id) {
+      console.error("Cannot mark group as found: Missing user ID")
+      return false
+    }
+
+    try {
+      // First, find the user's group
+      const { data: groups, error: findError } = await supabase
+        .from('groups')
+        .select('id')
+        .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id},user_id_3.eq.${user.id},user_id_4.eq.${user.id}`)
+        .single()
+
+      if (findError || !groups) {
+        console.error("Error finding user's group:", findError)
+        return false
+      }
+
+      // Update the group's found status
+      const { error: updateError } = await supabase
+        .from('groups')
+        .update({ found: true })
+        .eq('id', groups.id)
+
+      if (updateError) {
+        console.error("Error updating group's found status:", updateError)
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error("Error marking group as found:", error)
+      return false
+    }
+  }
+
   // Process the facematch between user's selfie and friend's image
   const processMatch = async (friendUrl: string) => {
     if (!user.selfie_url) {
@@ -83,10 +121,8 @@ export function CheckpointFacematch({ user, onComplete }: CheckpointFacematchPro
         setSuccess(true)
         setSimilarity(result.similarity)
         
-        // Update group found status
-        if (user.id) {
-          await updateGroupFoundStatus(user.id)
-        }
+        // Mark the group as found
+        await markGroupAsFound()
         
         // Wait a moment before triggering completion
         setTimeout(() => {
@@ -106,9 +142,9 @@ export function CheckpointFacematch({ user, onComplete }: CheckpointFacematchPro
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Checkpoint 1: Face Match</CardTitle>
+        <CardTitle>Face Match Challenge</CardTitle>
         <CardDescription>
-          Take a photo with a friend to complete this checkpoint
+          Take a photo with a friend to complete this challenge
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -120,7 +156,7 @@ export function CheckpointFacematch({ user, onComplete }: CheckpointFacematchPro
             {similarity && (
               <p className="text-sm">Similarity: {similarity.toFixed(2)}%</p>
             )}
-            <p>Moving to the next challenge...</p>
+            <p>Challenge completed. Moving to the next step...</p>
           </div>
         ) : (
           <div className="space-y-4">
