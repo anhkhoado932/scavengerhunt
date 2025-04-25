@@ -6,12 +6,14 @@ import { useEffect, useState } from "react";
 import { getGameStatus, GameStatus, updateCheckpointStatus } from "@/lib/supabase";
 import { GameProgress } from "@/components/game-progress";
 import { CheckpointFacematch } from "@/components/checkpoint-facematch";
+import { CheckpointLocationHints } from "@/components/checkpoint-location-hints";
 
 export default function Dashboard() {
   const { user, isLoading, logout } = useUser();
   const router = useRouter();
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
   const [isLoadingGame, setIsLoadingGame] = useState(true);
+  const [currentCheckpoint, setCurrentCheckpoint] = useState<number>(1);
 
   // Protect this route - redirect if not logged in
   useEffect(() => {
@@ -28,6 +30,10 @@ export default function Dashboard() {
         try {
           const status = await getGameStatus();
           setGameStatus(status);
+          // If game has started, set current checkpoint to 2 (location hints)
+          if (status?.game_has_started) {
+            setCurrentCheckpoint(2);
+          }
         } catch (error) {
           console.error("Error fetching game status:", error);
         } finally {
@@ -45,6 +51,17 @@ export default function Dashboard() {
       // Refresh game status after updating checkpoint
       const status = await getGameStatus();
       setGameStatus(status);
+      // Move to checkpoint 2
+      setCurrentCheckpoint(2);
+    }
+  };
+
+  const handleCheckpoint2Completed = async () => {
+    if (await updateCheckpointStatus(2)) {
+      // Refresh game status after updating checkpoint
+      const status = await getGameStatus();
+      setGameStatus(status);
+      setCurrentCheckpoint(3);
     }
   };
 
@@ -66,18 +83,19 @@ export default function Dashboard() {
   const renderCurrentCheckpoint = () => {
     if (!gameStatus) return null;
     
-    // If checkpoint 1 is not complete, show the facematch component
-    if (!gameStatus.checkpoint1_has_completed) {
-      return <CheckpointFacematch user={user} onComplete={handleCheckpoint1Completed} />;
+    switch (currentCheckpoint) {
+      case 1:
+        return <CheckpointFacematch user={user} onComplete={handleCheckpoint1Completed} />;
+      case 2:
+        return <CheckpointLocationHints user={user} onComplete={handleCheckpoint2Completed} />;
+      default:
+        return (
+          <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded text-center">
+            <p className="text-lg font-semibold">Waiting for next challenge...</p>
+            <p className="text-muted-foreground">Please wait for further instructions.</p>
+          </div>
+        );
     }
-    
-    // Will add other checkpoints later
-    return (
-      <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded text-center">
-        <p className="text-lg font-semibold">Waiting for next challenge...</p>
-        <p className="text-muted-foreground">Please wait for further instructions.</p>
-      </div>
-    );
   };
 
   return (

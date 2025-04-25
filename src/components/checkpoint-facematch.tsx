@@ -4,7 +4,7 @@ import { useState } from "react"
 import { CameraCapture } from "@/components/camera-capture"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { User } from "@/lib/supabase"
+import { User, updateGroupFoundStatus } from "@/lib/supabase"
 
 interface CheckpointFacematchProps {
   user: User
@@ -82,6 +82,12 @@ export function CheckpointFacematch({ user, onComplete }: CheckpointFacematchPro
       if (result.success) {
         setSuccess(true)
         setSimilarity(result.similarity)
+        
+        // Update group found status
+        if (user.id) {
+          await updateGroupFoundStatus(user.id)
+        }
+        
         // Wait a moment before triggering completion
         setTimeout(() => {
           onComplete()
@@ -114,7 +120,7 @@ export function CheckpointFacematch({ user, onComplete }: CheckpointFacematchPro
             {similarity && (
               <p className="text-sm">Similarity: {similarity.toFixed(2)}%</p>
             )}
-            <p>Checkpoint completed. Moving to the next step...</p>
+            <p>Moving to the next challenge...</p>
           </div>
         ) : (
           <div className="space-y-4">
