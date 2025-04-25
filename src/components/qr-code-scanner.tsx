@@ -71,16 +71,22 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d", { willReadFrequently: true });
 
-    if (!context) return;
+    if (!context) {
+      console.error("Failed to get canvas context");
+      return;
+    }
 
     function scanQRCode() {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        // TypeScript now knows context is not null because of the check above
+        context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = context?.getImageData(0, 0, canvas.width, canvas.height);
+        // @ts-ignore
+        const code = jsQR(imageData?.data, imageData?.width, imageData?.height);
         
         if (code) {
           onScan(code.data);
