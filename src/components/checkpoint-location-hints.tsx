@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { User, getTeamMembers, getUserGroup, UserGroup } from "@/lib/supabase"
 import { supabase } from "@/lib/supabase"
+import { QRCodeScanner } from "./qr-code-scanner"
 
 interface CheckpointLocationHintsProps {
   user: User
@@ -29,6 +30,12 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
   const [success, setSuccess] = useState(false)
   const [teamMembers, setTeamMembers] = useState<{id: string, name: string}[]>([])
   const [allCompleted, setAllCompleted] = useState(false)
+  const [locationSolved, setLocationSolved] = useState(false)
+  const [isScanning, setIsScanning] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [showScanner, setShowScanner] = useState(false)
+  const [showFinalMessage, setShowFinalMessage] = useState(false)
 
   useEffect(() => {
     loadHint()
@@ -49,6 +56,12 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
       const userGroup = await getUserGroup(user.id)
       if (!userGroup) {
         throw new Error("User is not in a group")
+      }
+
+      // Check if location is already solved
+      if (userGroup.location_is_solved) {
+        setLocationSolved(true)
+        return
       }
 
       // Determine which user question column to use based on user's position in group
@@ -121,6 +134,33 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
     }
   };
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Use back camera
+      })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        streamRef.current = stream
+      }
+      setIsScanning(true)
+    } catch (error) {
+      console.error('Error accessing camera:', error)
+      alert('Could not access camera. Please make sure you have granted camera permissions.')
+    }
+  }
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    setIsScanning(false)
+  }
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -132,6 +172,56 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
       <CardContent className="space-y-4">
         {isLoading ? (
           <p>Loading your hint...</p>
+        ) : locationSolved ? (
+          <div className="space-y-6">
+            {showFinalMessage ? (
+              <div className="p-6 bg-gradient-to-r from-green-400 to-green-500 text-white rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+                <h2 className="text-2xl font-bold mb-4 text-center">
+                  This is the final checkpoint
+                </h2>
+                <p className="text-lg text-center">
+                  Congratulations! You have completed all the challenges!
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="p-6 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
+                  <h2 className="text-2xl font-bold mb-4 text-center animate-pulse text-red-500">
+                    RUN TO THE LOCATION!!!!
+                  </h2>
+                  <p className="text-lg mb-4 text-center">
+                    FIND A QR CODE, AND SCAN IT (ONLY one of you need to scan)
+                  </p>
+                  <div className="bg-white/10 p-4 rounded-lg">
+                    <p className="text-lg mb-2 text-center">
+                      USE YOUR ANSWERS TO FILL IN THIS TO FIND THE LOCATION
+                    </p>
+                    <p className="text-xl font-bold text-center">
+                      THE LOCATION IS AISLE .. / .. on LEVEL .. OF THE BUILDING ..
+                    </p>
+                  </div>
+                </div>
+                {showScanner ? (
+                  <QRCodeScanner 
+                    onScan={(data: string) => {
+                      console.log("QR Code scanned:", data);
+                      setShowScanner(false);
+                      setShowFinalMessage(true);
+                    }} 
+                  />
+                ) : (
+                  <div className="flex justify-center">
+                    <button 
+                      className="px-6 py-3 bg-white text-yellow-600 font-bold rounded-lg shadow-md hover:bg-yellow-100 transition-colors duration-300"
+                      onClick={() => setShowScanner(true)}
+                    >
+                      SCAN QR CODE
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         ) : success ? (
           <div className="space-y-4">
             <div className="p-4 bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-300 rounded">
