@@ -16,9 +16,11 @@ export interface User {
 
 export interface GameStatus {
   game_has_started: boolean;
-  checkpoint1_has_completed?: boolean;
-  checkpoint2_has_completed?: boolean;
-  checkpoint3_has_completed?: boolean;
+}
+
+export interface GlobalsData {
+  id: number;
+  game_has_started: boolean;
 }
 
 export async function checkUserExists(email: string): Promise<User | null> {
