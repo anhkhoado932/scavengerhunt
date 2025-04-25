@@ -30,8 +30,13 @@ export interface UserGroup {
   user_id_2: string | null;
   user_id_3: string | null;
   user_id_4: string | null;
+  user1_question: number | null;
+  user2_question: number | null;
+  user3_question: number | null;
+  user4_question: number | null;
   photo_url?: string | null;
   found: boolean;
+  location_is_solved: boolean;
 }
 
 export interface GameLocation {
@@ -39,17 +44,6 @@ export interface GameLocation {
   floor: number;
   aisle: number;
   section: string;
-}
-
-export interface Hint {
-  type: 'scramble' | 'multiple-choice' | 'picture' | 'riddle';
-  content: string;
-  answer: string;
-}
-
-export interface HintAssignment {
-  userId: string;
-  hintIndex: number;
 }
 
 export interface TeamMember {
@@ -86,6 +80,8 @@ export async function getGameStatus(): Promise<GameStatus | null> {
     console.error('Error fetching game status:', error);
     return null;
   }
+
+  return data;
 }
 
 // New function to fetch user's group
@@ -170,86 +166,6 @@ export async function setGameLocation(location: GameLocation): Promise<boolean> 
   }
 }
 
-export async function getGameHints(): Promise<Hint[] | null> {
-  try {
-    const { data, error } = await supabase
-      .from('globals')
-      .select('hints')
-      .eq('id', 1)
-      .single();
-    
-    if (error) {
-      console.error('Error getting game hints:', error);
-      return null;
-    }
-    
-    return data?.hints || null;
-  } catch (error) {
-    console.error('Error getting game hints:', error);
-    return null;
-  }
-}
-
-export async function setGameHints(hints: Hint[]): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('globals')
-      .update({ hints })
-      .eq('id', 1);
-    
-    if (error) {
-      console.error('Error setting game hints:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error setting game hints:', error);
-    return false;
-  }
-}
-
-export async function getHintAssignment(userId: string): Promise<number | null> {
-  try {
-    const { data, error } = await supabase
-      .from('globals')
-      .select('hint_assignments')
-      .eq('id', 1)
-      .single();
-    
-    if (error) {
-      console.error('Error getting hint assignments:', error);
-      return null;
-    }
-    
-    const assignments: HintAssignment[] = data?.hint_assignments || [];
-    const assignment = assignments.find(a => a.userId === userId);
-    return assignment?.hintIndex ?? null;
-  } catch (error) {
-    console.error('Error getting hint assignments:', error);
-    return null;
-  }
-}
-
-export async function setHintAssignments(assignments: HintAssignment[]): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('globals')
-      .update({ hint_assignments: assignments })
-      .eq('id', 1);
-    
-    if (error) {
-      console.error('Error setting hint assignments:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error setting hint assignments:', error);
-    return false;
-  }
-}
-
 export async function getTeamMembers(userId: string): Promise<TeamMember[]> {
   try {
     // First, find the group that contains this user
@@ -290,70 +206,6 @@ export async function getTeamMembers(userId: string): Promise<TeamMember[]> {
   } catch (error) {
     console.error('Error getting team members:', error);
     return [];
-  }
-}
-
-export async function markHintCompleted(userId: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from('globals')
-      .select('completed_hints')
-      .eq('id', 1)
-      .single();
-    
-    if (error) {
-      console.error('Error getting completed hints:', error);
-      return false;
-    }
-
-    const completedHints: CompletedHint[] = data?.completed_hints || [];
-    const existingIndex = completedHints.findIndex(h => h.userId === userId);
-    
-    if (existingIndex === -1) {
-      completedHints.push({ userId, completed: true });
-    } else {
-      completedHints[existingIndex].completed = true;
-    }
-
-    const { error: updateError } = await supabase
-      .from('globals')
-      .update({ completed_hints: completedHints })
-      .eq('id', 1);
-    
-    if (updateError) {
-      console.error('Error updating completed hints:', updateError);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error marking hint completed:', error);
-    return false;
-  }
-}
-
-export async function areAllHintsCompleted(teamMembers: TeamMember[]): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from('globals')
-      .select('completed_hints')
-      .eq('id', 1)
-      .single();
-    
-    if (error) {
-      console.error('Error getting completed hints:', error);
-      return false;
-    }
-
-    const completedHints: CompletedHint[] = data?.completed_hints || [];
-    const teamMemberIds = teamMembers.map(m => m.id);
-    
-    return teamMemberIds.every(id => 
-      completedHints.some(h => h.userId === id && h.completed)
-    );
-  } catch (error) {
-    console.error('Error checking completed hints:', error);
-    return false;
   }
 }
 

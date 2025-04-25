@@ -92,6 +92,26 @@ export default function Dashboard() {
       );
     }
     
+    // If user is in a group and item has been found, show location hints
+    if (userGroup && userGroup.found) {
+      return (
+        <div className="space-y-6 mb-8">
+          <p className="text-muted-foreground text-center">
+            Game in progress!
+          </p>
+          <div className="mt-8">
+            <CheckpointLocationHints user={user} onComplete={async () => {
+              // Refresh user group data after completion
+              if (user.id) {
+                const group = await getUserGroup(user.id);
+                setUserGroup(group);
+              }
+            }} />
+          </div>
+        </div>
+      );
+    }
+        
     // Default state - waiting for next challenge or no group assigned
     return (
       <div className="space-y-6 mb-8">

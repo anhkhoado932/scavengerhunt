@@ -3,15 +3,23 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { User, getTeamMembers, markHintCompleted, areAllHintsCompleted } from "@/lib/supabase"
-import { generateRandomLocation, generateHints, Hint } from "@/lib/location-hints"
-import { getHintAssignment, setHintAssignments } from "@/lib/supabase"
-import { getGameLocation, getGameHints } from "@/lib/supabase"
+import { User, getTeamMembers, getUserGroup, UserGroup } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase"
 
 interface CheckpointLocationHintsProps {
   user: User
   onComplete: () => void
 }
+
+interface Hint {
+  id: number;
+  data: {
+    question: string;
+    answer: string;
+  };
+}
+
+type QuestionColumn = 'user1_question' | 'user2_question' | 'user3_question' | 'user4_question';
 
 export function CheckpointLocationHints({ user, onComplete }: CheckpointLocationHintsProps) {
   const [isLoading, setIsLoading] = useState(false)
@@ -19,10 +27,8 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
   const [userAnswer, setUserAnswer] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [allHints, setAllHints] = useState<Hint[]>([])
   const [teamMembers, setTeamMembers] = useState<{id: string, name: string}[]>([])
   const [allCompleted, setAllCompleted] = useState(false)
-  const [location, setLocation] = useState<{building: string, floor: number, aisle: number, section: string} | null>(null)
 
   useEffect(() => {
     loadHint()
@@ -35,61 +41,50 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
         throw new Error("User ID is required")
       }
 
-      console.log("Loading hint for user:", user.id)
-
       // Get team members
       const members = await getTeamMembers(user.id)
-      console.log("Team members:", members)
       setTeamMembers(members)
 
-      // Get the user's assigned hint index
-      const hintIndex = await getHintAssignment(user.id)
-      console.log("Hint index:", hintIndex)
-      
-      // Get existing location and hints
-      const existingLocation = await getGameLocation()
-      const existingHints = await getGameHints()
-      
-      if (hintIndex === null) {
-        console.log("No hint assignment found, generating new hints")
-        // If no assignment exists, generate new hints and assign them
-        const newLocation = existingLocation || await generateRandomLocation()
-        console.log("Using location:", newLocation)
-        setLocation(newLocation)
-        const hints = existingHints || await generateHints(newLocation)
-        console.log("Using hints:", hints)
-        setAllHints(hints)
-        
-        // Randomly assign hints to team members
-        const assignments = members.map(member => ({
-          userId: member.id,
-          hintIndex: Math.floor(Math.random() * hints.length)
-        }))
-        console.log("New hint assignments:", assignments)
-        await setHintAssignments(assignments)
-        
-        // Set the user's assigned hint
-        const userAssignment = assignments.find(a => a.userId === user.id)
-        if (userAssignment) {
-          console.log("Setting user's hint:", hints[userAssignment.hintIndex])
-          setHint(hints[userAssignment.hintIndex])
-        }
-      } else {
-        console.log("Using existing hint assignment")
-        // If assignment exists, use existing location and hints
-        const location = existingLocation || await generateRandomLocation()
-        console.log("Using location:", location)
-        setLocation(location)
-        const hints = existingHints || await generateHints(location)
-        console.log("Using hints:", hints)
-        setAllHints(hints)
-        setHint(hints[hintIndex])
+      // Get the user's group
+      const userGroup = await getUserGroup(user.id)
+      if (!userGroup) {
+        throw new Error("User is not in a group")
       }
 
-      // Check if all hints are completed
-      const completed = await areAllHintsCompleted(members)
-      console.log("All hints completed:", completed)
-      setAllCompleted(completed)
+      // Determine which user question column to use based on user's position in group
+      let questionColumn: QuestionColumn | null = null
+      if (userGroup.user_id_1 === user.id) questionColumn = 'user1_question'
+      else if (userGroup.user_id_2 === user.id) questionColumn = 'user2_question'
+      else if (userGroup.user_id_3 === user.id) questionColumn = 'user3_question'
+      else if (userGroup.user_id_4 === user.id) questionColumn = 'user4_question'
+
+      if (!questionColumn) {
+        throw new Error("User position not found in group")
+      }
+
+      // Get the hint for this user
+      const { data: hintData, error: hintError } = await supabase
+        .from('hints')
+        .select('*')
+        .eq('id', userGroup[questionColumn])
+        .single()
+
+      if (hintError || !hintData) {
+        throw new Error("Failed to load hint")
+      }
+
+      setHint(hintData)
+
+      // Check if all questions in the group are completed
+      const allQuestionsCompleted = [
+        userGroup.user1_question,
+        userGroup.user2_question,
+        userGroup.user3_question,
+        userGroup.user4_question
+      ].every(questionId => questionId === null)
+
+      setAllCompleted(allQuestionsCompleted)
+
     } catch (error) {
       console.error("Error loading hint:", error)
       setError("Failed to load hint. Please try again.")
@@ -98,49 +93,33 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
     }
   }
 
-  const handleSubmit = async () => {
-    if (!hint) return
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hint || !user.id) return;
 
-    // Convert both answers to lowercase and remove hyphens/spaces for comparison
-    const normalizedUserAnswer = userAnswer.toLowerCase().replace(/[-\s]/g, '')
-    const normalizedCorrectAnswer = hint.answer.toLowerCase().replace(/[-\s]/g, '')
-    
-    // Try to convert the user's answer to a number
-    const userAnswerAsNumber = parseInt(userAnswer)
-    
-    // Try to convert the correct answer to a number
-    const correctAnswerAsNumber = parseInt(hint.answer)
-    
-    // Check if either the word forms match or the numbers match
-    const isWordMatch = normalizedUserAnswer === normalizedCorrectAnswer
-    const isNumericMatch = !isNaN(userAnswerAsNumber) && !isNaN(correctAnswerAsNumber) && 
-      userAnswerAsNumber === correctAnswerAsNumber
+    if (userAnswer.toLowerCase() === hint.data.answer.toLowerCase()) {
+      // Get the user's group
+      const group = await getUserGroup(user.id);
+      if (!group) return;
 
-    if (isWordMatch || isNumericMatch) {
-      setSuccess(true)
-      // Mark this user's hint as completed
-      if (user.id) {
-        await markHintCompleted(user.id)
+      // Update the group to mark location as solved
+      const { error } = await supabase
+        .from('groups')
+        .update({ location_is_solved: true })
+        .eq('id', group.id);
+
+      if (error) {
+        console.error('Error updating group:', error);
+        return;
       }
-      
-      // Check if all hints are completed
-      const completed = await areAllHintsCompleted(teamMembers)
-      setAllCompleted(completed)
-      
-      if (completed) {
-        // Wait a bit before showing the final message
-        setTimeout(() => {
-          onComplete()
-        }, 3000)
-      } else {
-        setTimeout(() => {
-          onComplete()
-        }, 2000)
-      }
+
+      setUserAnswer('');
+      setSuccess(true);
+      onComplete?.();
     } else {
-      setError("Incorrect answer. Try again!")
+      setError("Incorrect answer. Try again!");
     }
-  }
+  };
 
   return (
     <Card className="w-full">
@@ -157,12 +136,9 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
           <div className="space-y-4">
             <div className="p-4 bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-300 rounded">
               <p className="font-semibold">Correct answer!</p>
-              {allCompleted && location ? (
+              {allCompleted ? (
                 <div className="mt-2">
                   <p className="text-lg font-bold">Congratulations! You've found the location!</p>
-                  <p className="mt-2">
-                    I am a place made from all of your answers, Aisle {location.aisle} / Section {location.section} on level {location.floor} of the {location.building}.
-                  </p>
                 </div>
               ) : (
                 <div className="mt-2">
@@ -194,7 +170,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
               <p className="font-semibold mb-2">Question:</p>
               <p className="mb-4">I am made by all of your team answers. What am I?</p>
               <p className="font-semibold mb-2">Your Hint:</p>
-              <p>{hint.content}</p>
+              <p>{hint.data.question}</p>
             </div>
 
             <div className="space-y-2">

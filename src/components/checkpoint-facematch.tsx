@@ -95,42 +95,92 @@ export function CheckpointFacematch({ user, onComplete }: CheckpointFacematchPro
     setSimilarity(null)
 
     try {
-      // Convert both images to base64
-      const userImageBase64 = await getBase64FromUrl(user.selfie_url)
+      // First, get the user's group and all members
+      const { data: groups, error: findError } = await supabase
+        .from('groups')
+        .select('*')
+        .or(`user_id_1.eq.${user.id},user_id_2.eq.${user.id},user_id_3.eq.${user.id},user_id_4.eq.${user.id}`)
+        .single()
+
+      if (findError || !groups) {
+        throw new Error("Could not find your group")
+      }
+
+      // Get all user IDs in the group except the current user
+      const groupUserIds = [
+        groups.user_id_1,
+        groups.user_id_2,
+        groups.user_id_3,
+        groups.user_id_4
+      ].filter(id => id !== null && id !== user.id)
+
+      // Get selfie URLs for all group members
+      const { data: groupMembers, error: membersError } = await supabase
+        .from('users')
+        .select('id, selfie_url')
+        .in('id', groupUserIds)
+
+      if (membersError || !groupMembers) {
+        throw new Error("Could not fetch group members")
+      }
+
+      // Convert friend's image to base64
       const friendImageBase64 = await getBase64FromUrl(friendUrl)
       
-      // Call facematch API with base64 encoded images
-      const response = await fetch("/api/facematch", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          userImage: userImageBase64,
-          friendImage: friendImageBase64
+      // Check if each group member is present in the image
+      let allMembersFound = true
+      let missingMembers: string[] = []
+
+      for (const member of groupMembers) {
+        if (!member.selfie_url) {
+          missingMembers.push(member.id)
+          allMembersFound = false
+          continue
+        }
+
+        // Convert member's selfie to base64
+        const memberImageBase64 = await getBase64FromUrl(member.selfie_url)
+        
+        // Call facematch API to check if member is in the image
+        const response = await fetch("/api/facematch", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            userImage: memberImageBase64,
+            friendImage: friendImageBase64
+          })
         })
-      })
 
-      if (!response.ok) {
-        throw new Error(`Failed to process face match: ${response.statusText}`)
+        if (!response.ok) {
+          throw new Error(`Failed to process face match: ${response.statusText}`)
+        }
+
+        const result = await response.json()
+        
+        if (!result.success || result.similarity < 0.7) { // Using 70% as threshold
+          missingMembers.push(member.id)
+          allMembersFound = false
+        }
       }
 
-      const result = await response.json()
+      if (!allMembersFound) {
+        setError(`Not all group members are present in the photo. Missing members: ${missingMembers.join(', ')}`)
+        return
+      }
+
+      // If all members are found, mark the group as found
+      setSuccess(true)
+      setSimilarity(100) // Since all members were found
       
-      if (result.success) {
-        setSuccess(true)
-        setSimilarity(result.similarity)
-        
-        // Mark the group as found
-        await markGroupAsFound()
-        
-        // Wait a moment before triggering completion
-        setTimeout(() => {
-          onComplete()
-        }, 2000)
-      } else {
-        setError(result.message || "Face matching failed. Please try again.")
-      }
+      // Mark the group as found
+      await markGroupAsFound()
+      
+      // Wait a moment before triggering completion
+      setTimeout(() => {
+        onComplete()
+      }, 2000)
     } catch (err) {
       console.error("Error in face matching:", err)
       setError("An error occurred during face matching. Please try again.")
