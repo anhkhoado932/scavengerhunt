@@ -1,6 +1,6 @@
 # Email Login with Supabase
 
-A simple Next.js application featuring an email-based login/signup form with Supabase integration.
+A siimple Next.js application featuring an email-based login/signup form with Supabase integration.
 
 ## Technologies Used
 
