@@ -234,7 +234,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
       {!locationSolved && (
         <CardHeader className="animate-fade-in">
           <CardTitle className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
-            Checkpoint 2: The Hunt for Your Next Location!
+            The Hunt Begins!
           </CardTitle>
           <CardDescription className="text-lg text-slate-600 dark:text-slate-300">
             Unlock the next clue to discover where you're headed! 
