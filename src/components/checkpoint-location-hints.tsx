@@ -163,15 +163,17 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Checkpoint 2: Location Hints</CardTitle>
-        <CardDescription>
-          Solve the hint to find your next location
-        </CardDescription>
-      </CardHeader>
+      {!locationSolved && (
+        <CardHeader>
+          <CardTitle>Checkpoint 2: The Hunt for Your Next Location!</CardTitle>
+          <CardDescription>
+          Unlock the next clue to discover where you’re headed! 
+          </CardDescription>
+        </CardHeader>
+      )}
       <CardContent className="space-y-4">
         {isLoading ? (
-          <p>Loading your hint...</p>
+          <p>Loading your riddle...</p>
         ) : locationSolved ? (
           <div className="space-y-6">
             {showFinalMessage ? (
@@ -185,20 +187,34 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
               </div>
             ) : (
               <>
-                <div className="p-6 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white rounded-lg shadow-lg transform hover:scale-105 transition-transform duration-300">
-                  <h2 className="text-2xl font-bold mb-4 text-center animate-pulse text-red-500">
-                    RUN TO THE LOCATION!!!!
-                  </h2>
-                  <p className="text-lg mb-4 text-center">
-                    FIND A QR CODE, AND SCAN IT (ONLY one of you need to scan)
-                  </p>
-                  <div className="bg-white/10 p-4 rounded-lg">
-                    <p className="text-lg mb-2 text-center">
-                      USE YOUR ANSWERS TO FILL IN THIS TO FIND THE LOCATION
+                <div className="space-y-6">
+                  <div className="mb-6">
+                    <p className="text-lg mb-4 text-center text-green-500 font-bold">
+                      You’ve unlocked the hint: {hint?.data.answer}
+                    </p>
+                    <p className="text-lg mb-4 text-center">
+                    Work together with your teammate and piece together the answers to complete the sentence below:
                     </p>
                     <p className="text-xl font-bold text-center">
-                      THE LOCATION IS AISLE .. / .. on LEVEL .. OF THE BUILDING ..
+                      Book __ , Page __ , on Floor __, at __
                     </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="text-lg text-center">
+                    Once you've got all the answers, you're one step closer to your destination!
+                    </p>
+                    <p className="text-lg text-center font-bold">
+                    So... What’s next?
+                    </p>
+                    <ol className="list-decimal list-inside space-y-2 text-lg">
+                      <li className="animate-[pulse_1s_ease-in-out_infinite] text-red-500 font-bold">
+                      TIME TO RUN!!!!!
+                      </li>
+                      <li>Find a QR Code</li>
+                      <li>Scan it (only one of you needs to do this)</li>
+                      <li className="animate-[pulse_1s_ease-in-out_infinite] text-green-500 font-bold">Claim your prize – a $50 AUD voucher at Restaurant ABC </li>
+                    </ol>
                   </div>
                 </div>
                 {showScanner ? (
@@ -225,31 +241,14 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
         ) : success ? (
           <div className="space-y-4">
             <div className="p-4 bg-green-50 text-green-700 dark:bg-green-900 dark:text-green-300 rounded">
-              <p className="font-semibold">Correct answer!</p>
+              <p className="font-semibold">You've cracked it!</p>
               {allCompleted ? (
                 <div className="mt-2">
                   <p className="text-lg font-bold">Congratulations! You've found the location!</p>
                 </div>
               ) : (
                 <div className="mt-2">
-                  <p>Moving to the next step...</p>
-                  <div className="mt-4">
-                    <p className="text-sm font-medium mb-2">Waiting for these team members to answer:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {teamMembers.map(member => {
-                        const isCompleted = member.id === user.id;
-                        return !isCompleted && (
-                          <div 
-                            key={member.id}
-                            className="p-2 bg-yellow-50 dark:bg-yellow-900 rounded"
-                          >
-                            <p className="text-sm font-medium">{member.name}</p>
-                            <p className="text-xs text-muted-foreground">Not answered yet</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <p>Get ready — you're moving on to the next step!</p>
                 </div>
               )}
             </div>
@@ -257,9 +256,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
         ) : hint ? (
           <div className="space-y-4">
             <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded">
-              <p className="font-semibold mb-2">Question:</p>
-              <p className="mb-4">I am made by all of your team answers. What am I?</p>
-              <p className="font-semibold mb-2">Your Hint:</p>
+              <p className="font-semibold mb-2">Your riddle:</p>
               <p>{hint.data.question}</p>
             </div>
 

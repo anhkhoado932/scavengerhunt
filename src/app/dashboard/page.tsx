@@ -198,14 +198,14 @@ export default function Dashboard() {
         
         {renderContent()}
         
-        {/* Sign Out button commented out for now
+         {/* Sign Out button commented out for now */}
         <button 
           onClick={logout}
           className="w-full px-4 py-2 bg-slate-200 dark:bg-slate-700 rounded hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
         >
           Sign Out
         </button>
-        */}
+        
       </div>
     </div>
   );
