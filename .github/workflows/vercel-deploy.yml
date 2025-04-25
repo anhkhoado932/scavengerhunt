@@ -5,25 +5,7 @@ on:
       - main
 
 jobs:
-  check-author:
-    runs-on: ubuntu-latest
-    outputs:
-      is-authorized: ${{ steps.check.outputs.is-authorized }}
-    steps:
-      - name: Check commit author
-        id: check
-        run: |
-          AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
-          echo "Commit author: $AUTHOR_EMAIL"
-          if [[ "$AUTHOR_EMAIL" == "s223188874@deakin.edu.au" ]]; then
-            echo "is-authorized=true" >> $GITHUB_OUTPUT
-          else
-            echo "is-authorized=false" >> $GITHUB_OUTPUT
-          fi
-
   deploy-production:
-    needs: check-author
-    if: needs.check-author.outputs.is-authorized == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
