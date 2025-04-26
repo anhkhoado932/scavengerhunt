@@ -40,6 +40,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
   const [showNextStepMessage, setShowNextStepMessage] = useState(false);
   const [showFinalMessage, setShowFinalMessage] = useState(false)
   const [draggedAnswer, setDraggedAnswer] = useState<string | null>(null)
+  const [activeTouchElement, setActiveTouchElement] = useState<HTMLElement | null>(null)
   const [locationAnswers, setLocationAnswers] = useState({
     book: '',
     page: '',
@@ -48,6 +49,9 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
   })
   const [teamAnswers, setTeamAnswers] = useState<{id: number, answer: string}[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [touchPosition, setTouchPosition] = useState({ x: 0, y: 0 })
+  const [isTouchDragging, setIsTouchDragging] = useState(false)
+  const [activeAnswer, setActiveAnswer] = useState<string | null>(null)
 
   useEffect(() => {
     loadHints()
@@ -433,6 +437,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
     setIsScanning(false)
   }
 
+  // Desktop drag and drop handlers
   const handleDragStart = (e: React.DragEvent, answer: string) => {
     setDraggedAnswer(answer)
     e.dataTransfer.setData('text/plain', answer)
@@ -455,6 +460,147 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
 
   const handleDragEnd = () => {
     setDraggedAnswer(null)
+  }
+
+  // Mobile touch handlers
+  const handleTouchStart = (e: React.TouchEvent, answer: string) => {
+    // Store the current touch position
+    const touch = e.touches[0]
+    setTouchPosition({ x: touch.clientX, y: touch.clientY })
+    
+    // Store the dragged element and answer
+    setActiveTouchElement(e.currentTarget as HTMLElement)
+    setActiveAnswer(answer)
+    
+    // Don't set dragging immediately - we'll set it in touchmove if the user actually drags
+    setIsTouchDragging(false)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!activeTouchElement || !activeAnswer) return
+    
+    e.preventDefault() // Prevent scrolling while dragging
+    
+    const touch = e.touches[0]
+    
+    // Calculate distance moved
+    const deltaX = Math.abs(touch.clientX - touchPosition.x)
+    const deltaY = Math.abs(touch.clientY - touchPosition.y)
+    
+    // If movement is significant, consider it dragging
+    if (!isTouchDragging && (deltaX > 10 || deltaY > 10)) {
+      setIsTouchDragging(true)
+      
+      // Create a floating element to represent the dragged item
+      const floating = document.createElement('div')
+      floating.id = 'floating-drag-element'
+      floating.style.position = 'fixed'
+      floating.style.zIndex = '9999'
+      floating.style.pointerEvents = 'none'
+      floating.style.left = `${touch.clientX - 30}px`
+      floating.style.top = `${touch.clientY - 30}px`
+      floating.style.backgroundColor = '#fff'
+      floating.style.border = '2px solid #3b82f6'
+      floating.style.borderRadius = '8px'
+      floating.style.padding = '10px'
+      floating.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)'
+      floating.textContent = activeAnswer
+      document.body.appendChild(floating)
+      
+      // Add visual feedback to original element
+      activeTouchElement.style.opacity = '0.4'
+    }
+    
+    // If we're dragging, update the position of the floating element
+    if (isTouchDragging) {
+      const floating = document.getElementById('floating-drag-element')
+      if (floating) {
+        floating.style.left = `${touch.clientX - 30}px`
+        floating.style.top = `${touch.clientY - 30}px`
+      }
+      
+      // Highlight dropzone elements when hovering over them
+      const dropzones = document.querySelectorAll('[data-dropzone]')
+      
+      dropzones.forEach((zone) => {
+        const rect = zone.getBoundingClientRect()
+        
+        // Check if touch is over this dropzone
+        if (
+          touch.clientX >= rect.left && 
+          touch.clientX <= rect.right && 
+          touch.clientY >= rect.top && 
+          touch.clientY <= rect.bottom
+        ) {
+          // Highlight the current dropzone
+          zone.classList.add('bg-blue-100', 'dark:bg-blue-900')
+        } else {
+          zone.classList.remove('bg-blue-100', 'dark:bg-blue-900')
+        }
+      })
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!activeTouchElement || !activeAnswer) {
+      resetTouchDrag()
+      return
+    }
+    
+    // Only process as a drop if we've actually been dragging
+    if (isTouchDragging) {
+      // Get the last touch position
+      const touch = e.changedTouches[0]
+      
+      // Find which dropzone the touch ended on
+      const dropzones = document.querySelectorAll('[data-dropzone]')
+      
+      dropzones.forEach((zone) => {
+        const rect = zone.getBoundingClientRect()
+        zone.classList.remove('bg-blue-100', 'dark:bg-blue-900')
+        
+        if (
+          touch.clientX >= rect.left && 
+          touch.clientX <= rect.right && 
+          touch.clientY >= rect.top && 
+          touch.clientY <= rect.bottom
+        ) {
+          // Drop the item here
+          const field = zone.getAttribute('data-field') as keyof typeof locationAnswers
+          if (field && activeAnswer) {
+            setLocationAnswers(prev => ({
+              ...prev,
+              [field]: activeAnswer
+            }))
+          }
+        }
+      })
+      
+      // Remove the floating element
+      const floating = document.getElementById('floating-drag-element')
+      if (floating) {
+        document.body.removeChild(floating)
+      }
+    }
+    
+    resetTouchDrag()
+  }
+
+  const resetTouchDrag = () => {
+    // Reset the visual state of the dragged element
+    if (activeTouchElement) {
+      activeTouchElement.style.opacity = '1'
+    }
+    
+    // Remove any floating element
+    const floating = document.getElementById('floating-drag-element')
+    if (floating) {
+      document.body.removeChild(floating)
+    }
+    
+    setActiveTouchElement(null)
+    setActiveAnswer(null)
+    setIsTouchDragging(false)
   }
 
   const getCurrentHint = () => {
@@ -500,12 +646,14 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                       Work together with your teammates and piece together the answers to complete the sentence below:
                     </p>
                     <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700">
-                      <div className="flex items-center justify-center space-x-2 text-2xl font-bold text-center text-blue-600 dark:text-blue-400">
+                      <div className="flex flex-wrap items-center justify-center gap-2 text-2xl font-bold text-center text-blue-600 dark:text-blue-400">
                         <span>Book</span>
                         <div 
                           className="w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center"
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, 'book')}
+                          data-dropzone
+                          data-field="book"
                         >
                           {locationAnswers.book}
                         </div>
@@ -514,6 +662,8 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                           className="w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center"
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, 'page')}
+                          data-dropzone
+                          data-field="page"
                         >
                           {locationAnswers.page}
                         </div>
@@ -522,6 +672,8 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                           className="w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center"
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, 'floor')}
+                          data-dropzone
+                          data-field="floor"
                         >
                           {locationAnswers.floor}
                         </div>
@@ -530,6 +682,8 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                           className="w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center"
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, 'location')}
+                          data-dropzone
+                          data-field="location"
                         >
                           {locationAnswers.location}
                         </div>
@@ -537,7 +691,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                     </div>
 
                     <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl">
-                      <p className="text-lg font-semibold text-center mb-4">Drag answers to fill in the blanks:</p>
+                      <p className="text-lg font-semibold text-center mb-4">Tap and drag answers to fill in the blanks:</p>
                       <div className="grid grid-cols-2 gap-4">
                         {teamAnswers.map((answer) => (
                           <div 
@@ -546,6 +700,9 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                             draggable
                             onDragStart={(e) => handleDragStart(e, answer.answer)}
                             onDragEnd={handleDragEnd}
+                            onTouchStart={(e) => handleTouchStart(e, answer.answer)}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
                           >
                             <p className="text-lg text-center">{answer.answer}</p>
                           </div>
