@@ -406,10 +406,10 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                       Work together with your teammates and piece together the answers to complete the sentence below:
                     </p>
                     <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700">
-                      <div className="flex items-center justify-center space-x-2 text-2xl font-bold text-center text-blue-600 dark:text-blue-400">
+                      <div className="flex flex-wrap items-center justify-center gap-2 text-xl md:text-2xl font-bold text-center text-blue-600 dark:text-blue-400">
                         <span>Book</span>
                         <div 
-                          className="w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center"
+                          className="min-w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center px-2"
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, 'book')}
                         >
@@ -417,7 +417,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                         </div>
                         <span>, Page</span>
                         <div 
-                          className="w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center"
+                          className="min-w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center px-2"
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, 'page')}
                         >
@@ -425,7 +425,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                         </div>
                         <span>, on Floor</span>
                         <div 
-                          className="w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center"
+                          className="min-w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center px-2"
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, 'floor')}
                         >
@@ -433,7 +433,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                         </div>
                         <span>, at</span>
                         <div 
-                          className="w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center"
+                          className="min-w-16 h-10 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center px-2"
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, 'location')}
                         >
@@ -444,16 +444,16 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
 
                     <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl">
                       <p className="text-lg font-semibold text-center mb-4">Drag answers to fill in the blanks:</p>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {teamAnswers.map((answer) => (
                           <div 
                             key={answer.id}
-                            className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow-md cursor-move transform hover:scale-105 transition-transform duration-200"
+                            className="p-4 bg-white dark:bg-slate-800 rounded-lg shadow-md cursor-move transform hover:scale-105 transition-transform duration-200 text-center touch-manipulation"
                             draggable
                             onDragStart={(e) => handleDragStart(e, answer.answer)}
                             onDragEnd={handleDragEnd}
                           >
-                            <p className="text-lg text-center">{answer.answer}</p>
+                            <p className="text-lg font-medium">{answer.answer}</p>
                           </div>
                         ))}
                       </div>
@@ -481,38 +481,42 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                     </Button>
                   </div>
                   <div className="space-y-4 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl">
-                    <p className="text-lg text-center text-slate-700 dark:text-slate-300">
-                      Once you've got all the answers, you're one step closer to your destination!
-                    </p>
-                    <p className="text-xl text-center font-bold text-blue-600 dark:text-blue-400">
-                      So... What's next?
-                    </p>
-                    <ol className="list-decimal list-inside space-y-3 text-lg">
-                      <li className="animate-[pulse_1s_ease-in-out_infinite] text-red-500 font-bold transform hover:scale-105 transition-transform">
+                    <h3 className="text-xl text-center font-bold text-blue-600 dark:text-blue-400 mb-4">
+                      What's Next?
+                    </h3>
+                    <ol className="list-decimal list-inside space-y-4 text-lg max-w-md mx-auto">
+                      <li className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-bold animate-pulse">
                         TIME TO RUN!!!!!
                       </li>
-                      <li className="text-slate-700 dark:text-slate-300">Find a QR Code</li>
-                      <li className="text-slate-700 dark:text-slate-300">Scan it (only one of you needs to do this)</li>
-                      <li className="animate-[pulse_1s_ease-in-out_infinite] text-green-500 font-bold transform hover:scale-105 transition-transform">
+                      <li className="p-3 rounded-lg bg-white/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300">
+                        Find a QR Code
+                      </li>
+                      <li className="p-3 rounded-lg bg-white/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300">
+                        Scan it (only one of you needs to do this)
+                      </li>
+                      <li className="p-3 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 font-bold animate-pulse">
                         Claim your prize – a $50 AUD voucher at Restaurant ABC
                       </li>
                     </ol>
                   </div>
                 </div>
                 {showScanner ? (
-                  <QRCodeScanner 
-                    onScan={(data: string) => {
-                      console.log("QR Code scanned:", data);
-                      setShowScanner(false);
-                      setShowFinalMessage(true);
-                    }} 
-                  />
+                  <div className="mt-8">
+                    <QRCodeScanner 
+                      onScan={(data: string) => {
+                        console.log("QR Code scanned:", data);
+                        setShowScanner(false);
+                        setShowFinalMessage(true);
+                      }} 
+                    />
+                  </div>
                 ) : (
-                  <div className="flex justify-center">
+                  <div className="flex justify-center mt-8">
                     <button 
-                      className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold rounded-xl shadow-lg transform hover:scale-105 transition-transform duration-300"
+                      className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold rounded-xl shadow-lg transform hover:scale-105 transition-transform duration-300 flex items-center gap-2"
                       onClick={() => setShowScanner(true)}
                     >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="5" y="5" rx="1"></rect><path d="M9 9h1v1H9z"></path><path d="M14 9h1v1h-1z"></path><path d="M9 14h1v1H9z"></path><path d="M14 14h1v1h-1z"></path></svg>
                       SCAN QR CODE
                     </button>
                   </div>
