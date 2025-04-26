@@ -276,15 +276,6 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
       console.error('Error loading team answers:', error)
     }
   }
-
-  const handleCheckAnswer = () => {
-    if (isCorrect) {
-      setShowNextStepMessage(true);
-    } else {
-      setFinalMessage("Oops! Try again.");
-    }
-  };
-  
   
 
   const handleSubmit = async (e: React.FormEvent) => {
