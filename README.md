@@ -1,77 +1,106 @@
-# Email Login with Supabase
+# Scavenger Hunt App
 ![assets/diagram.png](assets/diagram.png)
-A siimple Next.js application featuring an email-based login/signup form with Supabase integration.
+A modern, interactive scavenger hunt application built with Next.js, TypeScript, and Supabase. This application allows users to participate in digital scavenger hunts, scan QR codes, and track their progress in real-time.
 
-## Technologies Used
+## 🚀 Features
 
-- **Next.js**: React framework with App Router
-- **TypeScript**: Type-safe JavaScript
-- **Tailwind CSS**: Utility-first CSS framework for styling
-- **Shadcn UI**: UI component collection built on Radix UI
-- **React Hook Form**: Form handling with validation
-- **Zod**: TypeScript-first schema validation
-- **Supabase**: Backend-as-a-Service for user management
+- **QR Code Scanning**: Built-in QR code scanner for finding clues
+- **Real-time Progress Tracking**: Monitor hunt progress with interactive UI
+- **Admin Dashboard**: Create and manage scavenger hunts
+- **User Authentication**: Secure login with Supabase
+- **Responsive Design**: Works seamlessly on mobile and desktop
+- **Dark Mode Support**: Built-in theme switching
 
-## Getting Started
+## 🛠️ Tech Stack
 
-### Prerequisites
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **UI Components**: Shadcn UI / Radix UI
+- **Authentication**: Supabase
+- **Form Handling**: React Hook Form + Zod
+- **QR Code Processing**: jsQR
+- **Cloud Storage**: AWS SDK
+- **AI Integration**: OpenAI
+- **Notifications**: Sonner
 
-- Node.js (v18 or later recommended)
+## 📋 Prerequisites
+
+- Node.js (v18 or later)
 - npm or yarn
-- A Supabase account with a project set up
+- Supabase account
+- AWS account (for storage)
+- OpenAI API key
 
-### Supabase Setup
+## 🚀 Getting Started
 
-1. Create a new Supabase project
-2. Create a `user` table in the `public` schema with the following columns:
-   - `id` (uuid, primary key)
-   - `email` (text, unique)
-   - `name` (text)
-   - `created_at` (timestamp with timezone, default: now())
+1. **Clone the repository**
+   ```bash
+   git clone [repository-url]
+   cd scavengerhunt
+   ```
 
-3. Copy your Supabase URL and anon key from the project settings
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
 
-### Installation
+3. **Set up environment variables**
+   Create a `.env.local` file with the following variables:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   AWS_ACCESS_KEY_ID=your-aws-access-key
+   AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+   AWS_REGION=your-aws-region
+   OPENAI_API_KEY=your-openai-api-key
+   ```
 
-1. Clone the repository
-2. Install dependencies:
+4. **Run the development server**
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
 
-```bash
-npm install
-# or
-yarn install
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## 📁 Project Structure
+
+```
+src/
+├── app/                 # Next.js App Router pages
+│   ├── admin/          # Admin dashboard routes
+│   ├── api/            # API routes
+│   └── dashboard/      # User dashboard routes
+├── components/         # Reusable UI components
+├── contexts/          # React context providers
+└── lib/               # Utility functions and configurations
 ```
 
-3. Create a `.env.local` file with your Supabase credentials:
+## 🔑 Key Features
 
-```
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
+- **QR Code Integration**: Built-in scanner for finding and validating clues
+- **Real-time Updates**: Live progress tracking and notifications
+- **Admin Controls**: Create and manage hunts, view participant progress
+- **User Dashboard**: Track progress, view completed clues
+- **Responsive Design**: Optimized for both mobile and desktop use
+- **Secure Authentication**: Email-based login with Supabase
 
-4. Run the development server:
+## 🛠️ Development
 
-```bash
-npm run dev
-# or
-yarn dev
-```
+- **TypeScript**: Strict type checking enabled
+- **ESLint**: Code quality and style enforcement
+- **Turbopack**: Fast development server
+- **Tailwind CSS**: Utility-first styling
+- **Shadcn UI**: Pre-built component library
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the login form.
+## 📝 License
 
-## Project Structure
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-- `src/app/page.tsx` - Main home page with login form
-- `src/app/dashboard/page.tsx` - Dashboard page after successful login
-- `src/components/login-form.tsx` - Login form component with email lookup
-- `src/lib/supabase.ts` - Supabase client and user functions
-- `src/components/ui/` - Shadcn UI components
+## 🤝 Contributing
 
-## Features
-
-- Email-based authentication
-- Automatic user lookup by email
-- New user registration
-- Form validation using Zod and React Hook Form
-- Dark mode support
-- Modern UI with Shadcn components
+Contributions are welcome! Please feel free to submit a Pull Request.
