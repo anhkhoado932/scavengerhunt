@@ -24,11 +24,12 @@ type QuestionColumn = 'user1_question' | 'user2_question' | 'user3_question' | '
 
 export function CheckpointLocationHints({ user, onComplete }: CheckpointLocationHintsProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [isCurrentUser, setIsCurrentUser] = useState(0)
   const [hints, setHints] = useState<Hint[]>([])
   const [currentHintIndex, setCurrentHintIndex] = useState(0)
   const [userAnswer, setUserAnswer] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const [hasSolvedQuestion, setHasSolvedQuestion] = useState(false)
   const [teamMembers, setTeamMembers] = useState<{id: string, name: string}[]>([])
   const [allCompleted, setAllCompleted] = useState(false)
   const [locationSolved, setLocationSolved] = useState(false)
@@ -177,6 +178,31 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
         throw new Error("User is not in a group")
       }
 
+      if (userGroup) { 
+        if (userGroup.user_id_1 == user.id) {
+          setIsCurrentUser(1)
+        }
+        else if (userGroup.user_id_2 == user.id) {
+          setIsCurrentUser(2)
+        }
+        else if (userGroup?.user_id_3 == user.id) {
+          setIsCurrentUser(3)
+        }
+        else if (userGroup.user_id_4 == user.id) {
+          setIsCurrentUser(4)
+        }
+      }
+      if (userGroup?.user_id_1 == user.id && userGroup.Q1_solved === true) {
+        setHasSolvedQuestion(true)
+      } else if (userGroup?.user_id_2 == user.id && userGroup.Q2_solved === true) {
+        setHasSolvedQuestion(true)
+      } else if (userGroup?.user_id_3 == user.id && userGroup.Q3_solved === true) {
+        setHasSolvedQuestion(true)
+      } else if (userGroup?.user_id_4 == user.id && userGroup.Q4_solved === true) {
+        setHasSolvedQuestion(true)
+      }
+
+
       // Check if hints have been allocated to the group
       const hintsAllocated = userGroup.user1_question !== null || 
                             userGroup.user2_question !== null || 
@@ -286,25 +312,90 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
       if (currentHintIndex < hints.length - 1) {
         // If there are more hints for this user, move to the next one
         setCurrentHintIndex(currentHintIndex + 1);
+        setError(null);
       } else {
         // All hints for this user have been answered
         // Get the user's group
         const group = await getUserGroup(user.id);
         if (!group) return;
 
-        // Update the group to mark location as solved if all user's questions are answered
-        // This is a simplified approach - in a real app you'd check all group members' progress
-        const { error } = await supabase
-          .from('groups')
-          .update({ location_is_solved: true })
-          .eq('id', group.id);
+        // Determine which question flag to update based on user position
+        let updateField = '';
+        
+        if (group.user_id_1 === user.id && group.user1_question !== null) {
+          updateField = 'Q1_solved';
+          setIsCurrentUser(1);
+          setHasSolvedQuestion(true)
+        } else if (group.user_id_2 === user.id && group.user2_question !== null) {
+          updateField = 'Q2_solved';
+          setIsCurrentUser(2);
+          setHasSolvedQuestion(true)
+        } else if (group.user_id_3 === user.id && group.user3_question !== null) {
+          updateField = 'Q3_solved';
+          setIsCurrentUser(3);
+          setHasSolvedQuestion(true)
+        } else if (group.user_id_4 === user.id && group.user4_question !== null) {
+          updateField = 'Q4_solved';
+          setIsCurrentUser(4);
+          setHasSolvedQuestion(true)
+        }
 
-        if (error) {
-          console.error('Error updating group:', error);
+        if (updateField) {
+          // Mark this user's question as solved by setting the flag to true
+          const updateObj: Record<string, any> = {};
+          updateObj[updateField] = true;
+          
+          const { error: updateError } = await supabase
+            .from('groups')
+            .update(updateObj)
+            .eq('id', group.id);
+
+          if (updateError) {
+            console.error('Error updating group:', updateError);
+            return;
+          }
+        }
+
+        // Fetch the updated group to check if all questions are now solved
+        const { data: updatedGroup, error: fetchError } = await supabase
+          .from('groups')
+          .select('*')
+          .eq('id', group.id)
+          .single();
+
+        if (fetchError || !updatedGroup) {
+          console.error('Error fetching updated group:', fetchError);
           return;
         }
 
-        setSuccess(true);
+        // Check if all questions are now solved (all solved flags are true)
+        const allQuestionsSolved = 
+          updatedGroup.Q1_solved === true &&
+          updatedGroup.Q2_solved === true &&
+          updatedGroup.Q3_solved === true &&
+          updatedGroup.Q4_solved === true;
+        // Only set location_is_solved if all 4 questions are solved
+        if (allQuestionsSolved) {
+          const { error } = await supabase
+            .from('groups')
+            .update({ location_is_solved: true })
+            .eq('id', group.id);
+
+          if (error) {
+            console.error('Error updating group:', error);
+            return;
+          }
+          
+          setLocationSolved(true);
+        } else if (updatedGroup.Q1_solved && isCurrentUser == 1 ||
+          updatedGroup.Q2_solved && isCurrentUser == 2 ||
+          updatedGroup.Q3_solved && isCurrentUser == 3 ||
+          updatedGroup.Q4_solved && isCurrentUser == 4 
+        ) {
+          // Just show success for this user's part
+          setHasSolvedQuestion(true);
+        }
+
         onComplete?.();
       }
     } else {
@@ -524,7 +615,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
               </>
             )}
           </div>
-        ) : success ? (
+        ) : hasSolvedQuestion ? (
           <div className="space-y-4 animate-fade-in">
             <div className="p-6 bg-gradient-to-r from-green-400 to-green-500 text-white rounded-xl shadow-lg">
               <p className="text-xl font-semibold">You've cracked it!</p>

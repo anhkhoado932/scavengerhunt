@@ -37,6 +37,10 @@ export interface UserGroup {
   photo_url?: string | null;
   found: boolean;
   location_is_solved: boolean;
+  Q1_solved: boolean | null;
+  Q2_solved: boolean | null;
+  Q3_solved: boolean | null;
+  Q4_solved: boolean | null;
 }
 
 export interface GameLocation {
