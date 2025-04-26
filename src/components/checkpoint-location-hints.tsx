@@ -460,6 +460,26 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                     </div>
                   </div>
 
+                  <div className="text-center mt-6">
+                    <Button
+                      onClick={() => {
+                        const isCorrect = 
+                          locationAnswers.book.toLowerCase() === "Hamlet".toLowerCase() &&
+                          locationAnswers.page.toLowerCase() === "99".toLowerCase() &&
+                          locationAnswers.floor.toLowerCase() === "2".toLowerCase() &&
+                          locationAnswers.location.toLowerCase() === "Library".toLowerCase();
+
+                        if (isCorrect) {
+                          setShowFinalMessage(true);
+                        } else {
+                          alert("Oops! Try again.");
+                        }
+                      }}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-lg px-6 py-3 rounded-xl transition-all duration-300"
+                    >
+                      CHECK LOCATION
+                    </Button>
+                  </div>
                   <div className="space-y-4 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl">
                     <p className="text-lg text-center text-slate-700 dark:text-slate-300">
                       Once you've got all the answers, you're one step closer to your destination!
