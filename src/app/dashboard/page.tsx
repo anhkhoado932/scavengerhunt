@@ -115,9 +115,9 @@ export default function Dashboard() {
           <div className="mt-8">
             <Card className="w-full">
               <CardHeader>
-                <CardTitle>Your Group Assignment</CardTitle>
+                <CardTitle>FIND YOUR GROUP</CardTitle>
                 <CardDescription>
-                  This is your group's assigned image
+                  Find anyone with the same image as you to form a group
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
