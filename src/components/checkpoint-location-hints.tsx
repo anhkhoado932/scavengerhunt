@@ -24,7 +24,8 @@ type QuestionColumn = 'user1_question' | 'user2_question' | 'user3_question' | '
 
 export function CheckpointLocationHints({ user, onComplete }: CheckpointLocationHintsProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [hint, setHint] = useState<Hint | null>(null)
+  const [hints, setHints] = useState<Hint[]>([])
+  const [currentHintIndex, setCurrentHintIndex] = useState(0)
   const [userAnswer, setUserAnswer] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -46,11 +47,120 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
   const [teamAnswers, setTeamAnswers] = useState<{id: number, answer: string}[]>([])
 
   useEffect(() => {
-    loadHint()
+    loadHints()
     loadTeamAnswers()
   }, [])
 
-  const loadHint = async () => {
+  const allocateHintsToGroup = async (groupId: number) => {
+    try {
+      // Get the group information
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('id', groupId)
+        .single()
+
+      if (groupError || !groupData) {
+        throw new Error("Failed to load group data")
+      }
+
+      // Count number of members in the group
+      const memberIds = [
+        groupData.user_id_1,
+        groupData.user_id_2,
+        groupData.user_id_3,
+        groupData.user_id_4
+      ].filter(id => id !== null)
+
+      const groupSize = memberIds.length
+
+      // Get all available hints (assuming the first 4 hints are used for all groups)
+      const { data: availableHints, error: hintsError } = await supabase
+        .from('hints')
+        .select('id')
+        .order('id', { ascending: true })
+        .limit(4)
+
+      if (hintsError || !availableHints) {
+        throw new Error("Failed to load available hints")
+      }
+
+      // Prepare update object and distribute hints based on group size
+      const updateObj: Record<string, any> = {}
+
+      if (groupSize === 2) {
+        // For 2 users: First user gets questions 0,1 and second user gets questions 2,3
+        updateObj.user1_question = availableHints[0].id
+        updateObj.user2_question = availableHints[2].id
+        updateObj.user3_question = availableHints[1].id
+        updateObj.user4_question = availableHints[3].id
+      } else if (groupSize === 3) {
+        // For 3 users: First user gets questions 0,1 and others get one each
+        updateObj.user1_question = availableHints[0].id
+        updateObj.user2_question = availableHints[2].id
+        updateObj.user3_question = availableHints[3].id
+        updateObj.user4_question = availableHints[1].id
+      } else if (groupSize === 4) {
+        // Each member gets 1 question
+        updateObj.user1_question = availableHints[0].id
+        updateObj.user2_question = availableHints[1].id
+        updateObj.user3_question = availableHints[2].id
+        updateObj.user4_question = availableHints[3].id
+      }
+
+      // Update the group with allocated questions
+      const { error: updateError } = await supabase
+        .from('groups')
+        .update(updateObj)
+        .eq('id', groupId)
+
+      if (updateError) {
+        throw new Error("Failed to update group with allocated hints")
+      }
+
+      return true
+    } catch (error) {
+      console.error("Error allocating hints:", error)
+      return false
+    }
+  }
+
+  const getUserHintIds = (userGroup: UserGroup, userId: string) => {
+    // Determine which questions this user should see based on group size and user position
+    const hintIds: number[] = []
+    const groupSize = [userGroup.user_id_1, userGroup.user_id_2, userGroup.user_id_3, userGroup.user_id_4]
+      .filter(id => id !== null).length
+
+    if (userGroup.user_id_1 === userId) {
+      if (userGroup.user1_question !== null) {
+        hintIds.push(userGroup.user1_question)
+      }
+      if ((groupSize === 2 || groupSize === 3) && userGroup.user4_question !== null) {
+        // First user in 2 or 3-person groups gets 2 questions
+        hintIds.push(userGroup.user4_question)
+      }
+    } else if (userGroup.user_id_2 === userId) {
+      if (userGroup.user2_question !== null) {
+        hintIds.push(userGroup.user2_question)
+      }
+      if (groupSize === 2 && userGroup.user3_question !== null) {
+        // Second user in 2-person group gets 2 questions
+        hintIds.push(userGroup.user3_question)
+      }
+    } else if (userGroup.user_id_3 === userId) {
+      if (userGroup.user3_question !== null) {
+        hintIds.push(userGroup.user3_question)
+      }
+    } else if (userGroup.user_id_4 === userId) {
+      if (userGroup.user4_question !== null) {
+        hintIds.push(userGroup.user4_question)
+      }
+    }
+
+    return hintIds
+  }
+
+  const loadHints = async () => {
     setIsLoading(true)
     try {
       if (!user.id) {
@@ -67,35 +177,50 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
         throw new Error("User is not in a group")
       }
 
+      // Check if hints have been allocated to the group
+      const hintsAllocated = userGroup.user1_question !== null || 
+                            userGroup.user2_question !== null || 
+                            userGroup.user3_question !== null || 
+                            userGroup.user4_question !== null
+
+      // If hints have not been allocated, allocate them now
+      if (!hintsAllocated) {
+        await allocateHintsToGroup(userGroup.id)
+        
+        // Refresh user group data after allocation
+        const updatedGroup = await getUserGroup(user.id)
+        if (!updatedGroup) {
+          throw new Error("Failed to get updated group data")
+        }
+        
+        // Update userGroup reference with the new data
+        Object.assign(userGroup, updatedGroup)
+      }
+
       // Check if location is already solved
       if (userGroup.location_is_solved) {
         setLocationSolved(true)
         return
       }
 
-      // Determine which user question column to use based on user's position in group
-      let questionColumn: QuestionColumn | null = null
-      if (userGroup.user_id_1 === user.id) questionColumn = 'user1_question'
-      else if (userGroup.user_id_2 === user.id) questionColumn = 'user2_question'
-      else if (userGroup.user_id_3 === user.id) questionColumn = 'user3_question'
-      else if (userGroup.user_id_4 === user.id) questionColumn = 'user4_question'
-
-      if (!questionColumn) {
-        throw new Error("User position not found in group")
+      // Get the hint IDs for this user based on their position in the group
+      const hintIds = getUserHintIds(userGroup, user.id)
+      
+      if (hintIds.length === 0) {
+        throw new Error("No hints assigned to this user")
       }
 
-      // Get the hint for this user
-      const { data: hintData, error: hintError } = await supabase
+      // Fetch all hints for this user
+      const { data: hintsData, error: hintsError } = await supabase
         .from('hints')
         .select('*')
-        .eq('id', userGroup[questionColumn])
-        .single()
+        .in('id', hintIds)
 
-      if (hintError || !hintData) {
-        throw new Error("Failed to load hint")
+      if (hintsError || !hintsData) {
+        throw new Error("Failed to load hints")
       }
 
-      setHint(hintData)
+      setHints(hintsData)
 
       // Check if all questions in the group are completed
       const allQuestionsCompleted = [
@@ -108,8 +233,8 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
       setAllCompleted(allQuestionsCompleted)
 
     } catch (error) {
-      console.error("Error loading hint:", error)
-      setError("Failed to load hint. Please try again.")
+      console.error("Error loading hints:", error)
+      setError("Failed to load hints. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -131,7 +256,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
       ].filter(id => id !== null)
 
       // Fetch all hints for these questions
-      const { data: hints, error } = await supabase
+      const { data: hintsData, error } = await supabase
         .from('hints')
         .select('id, data')
         .in('id', questionIds)
@@ -139,7 +264,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
       if (error) throw error
 
       // Extract answers from hints
-      const answers = hints.map(hint => ({
+      const answers = hintsData.map(hint => ({
         id: hint.id,
         answer: hint.data.answer
       }))
@@ -152,27 +277,36 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!hint || !user.id) return;
+    const currentHint = hints[currentHintIndex];
+    if (!currentHint || !user.id) return;
 
-    if (userAnswer.toLowerCase() === hint.data.answer.toLowerCase()) {
-      // Get the user's group
-      const group = await getUserGroup(user.id);
-      if (!group) return;
-
-      // Update the group to mark location as solved
-      const { error } = await supabase
-        .from('groups')
-        .update({ location_is_solved: true })
-        .eq('id', group.id);
-
-      if (error) {
-        console.error('Error updating group:', error);
-        return;
-      }
-
+    if (userAnswer.toLowerCase() === currentHint.data.answer.toLowerCase()) {
       setUserAnswer('');
-      setSuccess(true);
-      onComplete?.();
+      
+      if (currentHintIndex < hints.length - 1) {
+        // If there are more hints for this user, move to the next one
+        setCurrentHintIndex(currentHintIndex + 1);
+      } else {
+        // All hints for this user have been answered
+        // Get the user's group
+        const group = await getUserGroup(user.id);
+        if (!group) return;
+
+        // Update the group to mark location as solved if all user's questions are answered
+        // This is a simplified approach - in a real app you'd check all group members' progress
+        const { error } = await supabase
+          .from('groups')
+          .update({ location_is_solved: true })
+          .eq('id', group.id);
+
+        if (error) {
+          console.error('Error updating group:', error);
+          return;
+        }
+
+        setSuccess(true);
+        onComplete?.();
+      }
     } else {
       setError("Incorrect answer. Try again!");
     }
@@ -229,6 +363,10 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
     setDraggedAnswer(null)
   }
 
+  const getCurrentHint = () => {
+    return hints.length > 0 ? hints[currentHintIndex] : null;
+  }
+
   return (
     <Card className="w-full bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {!locationSolved && (
@@ -262,10 +400,10 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
                 <div className="space-y-6">
                   <div className="mb-6">
                     <p className="text-lg mb-4 text-center text-green-500 font-bold animate-pulse">
-                      You've unlocked the hint: {hint?.data.answer}
+                      You've unlocked all your hints!
                     </p>
                     <p className="text-lg mb-4 text-center text-slate-700 dark:text-slate-300">
-                      Work together with your teammate and piece together the answers to complete the sentence below:
+                      Work together with your teammates and piece together the answers to complete the sentence below:
                     </p>
                     <div className="p-6 bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-200 dark:border-slate-700">
                       <div className="flex items-center justify-center space-x-2 text-2xl font-bold text-center text-blue-600 dark:text-blue-400">
@@ -377,11 +515,17 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
               )}
             </div>
           </div>
-        ) : hint ? (
+        ) : hints.length > 0 ? (
           <div className="space-y-4 animate-fade-in">
+            <div className="flex justify-between items-center">
+              <div className="text-sm font-medium text-slate-500">
+                Question {currentHintIndex + 1} of {hints.length}
+              </div>
+            </div>
+            
             <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-xl shadow-md">
               <p className="font-semibold mb-2 text-blue-600 dark:text-blue-400">Your riddle:</p>
-              <p className="text-lg text-slate-700 dark:text-slate-300">{hint.data.question}</p>
+              <p className="text-lg text-slate-700 dark:text-slate-300">{getCurrentHint()?.data.question}</p>
             </div>
 
             <div className="space-y-4">
@@ -408,7 +552,7 @@ export function CheckpointLocationHints({ user, onComplete }: CheckpointLocation
             )}
           </div>
         ) : (
-          <p className="text-center text-slate-500 dark:text-slate-400">No riddle available. Please try again.</p>
+          <p className="text-center text-slate-500 dark:text-slate-400">No riddles available. Please try again.</p>
         )}
       </CardContent>
     </Card>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import AWS from 'aws-sdk';
-
+require('dotenv').config();
 // Configure AWS Rekognition
 const rekognition = new AWS.Rekognition({
   accessKeyId: process.env.AMAZON_DEV_ACCESS_KEY_ID,
